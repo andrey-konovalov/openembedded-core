@@ -1,0 +1,42 @@
+From: Andrey Konovalov <andrey.konovalov@linaro.org>
+Date: Fri, 16 Sep 2022 16:58:20 +0000
+Subject: [PATCH] CLANG_RESOURCE_DIR workaround
+
+Setting CLANG_RESOURCE_DIR to "$(llvm-config --libdir)something"
+results in clBuildProgram() error when an OpenCL program is being
+built on the target. The reason is that $(llvm-config --libdir) output
+includes path to the sysroot directory.
+
+Work this around by using '/usr/lib' instead of the libdir value
+exported by LLVM.
+
+Upstream-Status: Inappropriate
+Signed-off-by: Andrey Konovalov <andrey.konovalov@linaro.org>
+
+---
+
+--- a/src/gallium/frontends/clover/meson.build	2022-09-16 10:24:55.910577158 +0000
++++ b/src/gallium/frontends/clover/meson.build	2022-09-16 10:28:13.112804197 +0000
+@@ -71,8 +71,7 @@ libclllvm = static_library(
+     clover_opencl_cpp_args,
+     clover_spirv_cpp_args,
+     '-DCLANG_RESOURCE_DIR="@0@"'.format(join_paths(
+-      dep_llvm.get_variable(cmake : 'LLVM_LIBRARY_DIR', configtool: 'libdir'), 'clang',
+-      dep_llvm.version(), 'include',
++      '/usr/lib', 'clang', dep_llvm.version(), 'include',
+     )),
+   ],
+   gnu_symbol_visibility : 'hidden',
+--- a/src/compiler/clc/meson.build	2022-09-16 16:40:10.641735401 +0000
++++ b/src/compiler/clc/meson.build	2022-09-16 16:50:18.095700452 +0000
+@@ -39,7 +39,9 @@ files_libclc = files(
+   'clc_helpers.cpp',
+ )
+ 
+-_libclc_cpp_args = ['-DCLANG_RESOURCE_DIR="@0@"'.format(clang_resource_dir)]
++_libclc_cpp_args = ['-DCLANG_RESOURCE_DIR="@0@"'.format(join_paths(
++                       '/usr/lib', 'clang', dep_llvm.version(), 'include'
++                    ))]
+ if with_microsoft_clc
+   _libclc_cpp_args += ['-DUSE_STATIC_OPENCL_C_H=1']
+ endif
